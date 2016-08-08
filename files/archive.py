@@ -117,7 +117,7 @@ def main():
     module = AnsibleModule(
         argument_spec = dict(
             path = dict(type='list', required=True),
-            format  = dict(choices=['gz', 'bz2', 'zip'], default='gz', required=False),
+            format  = dict(choices=['gz', 'bz2', 'zip', 'tar'], default='gz', required=False),
             dest = dict(required=False),
             remove = dict(required=False, default=False, type='bool'),
         ),
@@ -199,7 +199,7 @@ def main():
     # No source files were found but the named archive exists: are we 'compress' or 'archive' now?
     if len(missing) == len(expanded_paths) and dest and os.path.exists(dest):
         # Just check the filename to know if it's an archive or simple compressed file
-        if re.search(r'(\.tar\.gz|\.tgz|.tbz2|\.tar\.bz2|\.zip)$', os.path.basename(dest), re.IGNORECASE):
+        if re.search(r'(\.tar|\.tar\.gz|\.tgz|.tbz2|\.tar\.bz2|\.zip)$', os.path.basename(dest), re.IGNORECASE):
             state = 'archive'
         else:
             state = 'compress'
@@ -231,6 +231,10 @@ def main():
                 # Easier compression using tarfile module
                 elif format == 'gz' or format == 'bz2':
                     arcfile = tarfile.open(dest, 'w|' + format)
+
+                # Or plain tar archiving
+                elif format == 'tar':
+                    arcfile = tarfile.open(dest, 'w')
 
                 for path in archive_paths:
                     if os.path.isdir(path):
