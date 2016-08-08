@@ -129,6 +129,7 @@ def main():
     paths = params['path']
     dest = params['dest']
     remove = params['remove']
+
     expanded_paths = []
     compression = params['compression']
     globby = False
@@ -376,6 +377,11 @@ def main():
             except OSError:
                 e = get_exception()
                 module.fail_json(path=path, msg='Unable to remove source file: %s' % str(e))
+
+    params['path'] = dest
+    file_args = module.load_file_common_arguments(params)
+
+    changed = module.set_fs_attributes_if_different(file_args, changed)
 
     module.exit_json(archived=successes, dest=dest, changed=changed, state=state, arcroot=arcroot, missing=missing, expanded_paths=expanded_paths)
 
