@@ -34,7 +34,7 @@ options:
     description:
       - Remote absolute path, glob, or list of paths or globs for the file or files to compress or archive.
     required: true
-  compression:
+  format:
     description:
       - The type of compression to use. Can be 'gz', 'bz2', or 'zip'.
     choices: [ 'gz', 'bz2', 'zip' ]
@@ -65,7 +65,7 @@ EXAMPLES = '''
 - archive: path=/path/to/foo remove=True
 
 # Create a zip archive of /path/to/foo
-- archive: path=/path/to/foo compression=zip
+- archive: path=/path/to/foo format=zip
 
 # Create a bz2 archive of multiple files, rooted at /path
 - archive:
@@ -73,7 +73,7 @@ EXAMPLES = '''
         - /path/to/foo
         - /path/wong/foo
     dest: /path/file.tar.bz2
-    compression: bz2
+    format: bz2
 '''
 
 RETURN = '''
@@ -117,7 +117,7 @@ def main():
     module = AnsibleModule(
         argument_spec = dict(
             path = dict(type='list', required=True),
-            compression = dict(choices=['gz', 'bz2', 'zip'], default='gz', required=False),
+            format  = dict(choices=['gz', 'bz2', 'zip'], default='gz', required=False),
             dest = dict(required=False),
             remove = dict(required=False, default=False, type='bool'),
         ),
@@ -131,7 +131,7 @@ def main():
     remove = params['remove']
 
     expanded_paths = []
-    compression = params['compression']
+    format = params['format']
     globby = False
     changed = False
     state = 'absent'
@@ -157,11 +157,11 @@ def main():
     archive = globby or os.path.isdir(expanded_paths[0]) or len(expanded_paths) > 1
 
     # Default created file name (for single-file archives) to
-    # <file>.<compression>
+    # <file>.<format>
     if dest:
         dest = os.path.expanduser(dest)
     elif not archive:
-        dest = '%s.%s' % (expanded_paths[0], compression)
+        dest = '%s.%s' % (expanded_paths[0], format)
 
     # Force archives to specify 'dest'
     if archive and not dest:
@@ -225,12 +225,12 @@ def main():
             try:
 
                 # Slightly more difficult (and less efficient!) compression using zipfile module
-                if compression == 'zip':
+                if format == 'zip':
                     arcfile = zipfile.ZipFile(dest, 'w', zipfile.ZIP_DEFLATED)
 
                 # Easier compression using tarfile module
-                elif compression == 'gz' or compression == 'bz2':
-                    arcfile = tarfile.open(dest, 'w|' + compression)
+                elif format == 'gz' or format == 'bz2':
+                    arcfile = tarfile.open(dest, 'w|' + format)
 
                 for path in archive_paths:
                     if os.path.isdir(path):
@@ -244,7 +244,7 @@ def main():
                                 arcname = fullpath[len(arcroot):]
 
                                 try:
-                                    if compression == 'zip':
+                                    if format == 'zip':
                                         arcfile.write(fullpath, arcname)
                                     else:
                                         arcfile.add(fullpath, arcname, recursive=False)
@@ -259,7 +259,7 @@ def main():
 
                                 if not filecmp.cmp(fullpath, dest):
                                     try:
-                                        if compression == 'zip':
+                                        if format == 'zip':
                                             arcfile.write(fullpath, arcname)
                                         else:
                                             arcfile.add(fullpath, arcname, recursive=False)
@@ -269,7 +269,7 @@ def main():
                                         e = get_exception()
                                         errors.append('Adding %s: %s' % (path, str(e)))
                     else:
-                        if compression == 'zip':
+                        if format == 'zip':
                             arcfile.write(path, path[len(arcroot):])
                         else:
                             arcfile.add(path, path[len(arcroot):], recursive=False)
@@ -278,7 +278,7 @@ def main():
 
             except Exception:
                 e = get_exception()
-                return module.fail_json(msg='Error when writing %s archive at %s: %s' % (compression == 'zip' and 'zip' or ('tar.' + compression), dest, str(e)))
+                return module.fail_json(msg='Error when writing %s archive at %s: %s' % (format == 'zip' and 'zip' or ('tar.' + format), dest, str(e)))
 
             if arcfile:
                 arcfile.close()
@@ -332,7 +332,7 @@ def main():
                     size = os.path.getsize(dest)
 
                 try:
-                    if compression == 'zip':
+                    if format == 'zip':
                         arcfile = zipfile.ZipFile(dest, 'w', zipfile.ZIP_DEFLATED)
                         arcfile.write(path, path[len(arcroot):])
                         arcfile.close()
@@ -341,12 +341,12 @@ def main():
                     else:
                         f_in = open(path, 'rb')
 
-                        if compression == 'gz':
+                        if format == 'gz':
                             f_out = gzip.open(dest, 'wb')
-                        elif compression == 'bz2':
+                        elif format == 'bz2':
                             f_out = bz2.BZ2File(dest, 'wb')
                         else:
-                            raise OSError("Invalid compression")
+                            raise OSError("Invalid format")
 
                         shutil.copyfileobj(f_in, f_out)
 
