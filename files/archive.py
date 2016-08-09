@@ -1,6 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+# import module snippets
+from ansible.module_utils.basic import AnsibleModule
+
 """
 (c) 2016, Ben Doherty <bendohmv@gmail.com>
 Sponsored by Oomph, Inc. http://www.oomphinc.com
@@ -103,6 +106,7 @@ expanded_paths:
 '''
 
 import os
+import re
 import glob
 import shutil
 import gzip
@@ -141,9 +145,14 @@ def main():
     for i, path in enumerate(paths):
         path = os.path.expanduser(os.path.expandvars(path))
 
-        # Detect glob-like characters
-        if any((c in set('*?')) for c in path):
+        # Expand any glob characters. If found, add the expanded glob to the
+        # list of expanded_paths, which might be empty.
+        if ('*' in path or '?' in path):
             expanded_paths = expanded_paths + glob.glob(path)
+            globby = True
+
+        # If there are no glob characters the path is added to the expanded paths
+        # whether the path exists or not
         else:
             expanded_paths.append(path)
 
@@ -156,9 +165,7 @@ def main():
 
     # Default created file name (for single-file archives) to
     # <file>.<format>
-    if dest:
-        dest = os.path.expanduser(dest)
-    elif not archive:
+    if not dest and not archive:
         dest = '%s.%s' % (expanded_paths[0], format)
 
     # Force archives to specify 'dest'
@@ -167,7 +174,6 @@ def main():
 
     archive_paths = []
     missing = []
-    exclude = []
     arcroot = ''
 
     for path in expanded_paths:
@@ -278,8 +284,7 @@ def main():
 
                         successes.append(path)
 
-            except Exception:
-                e = get_exception()
+            except Exception as e:
                 return module.fail_json(msg='Error when writing %s archive at %s: %s' % (format == 'zip' and 'zip' or ('tar.' + format), dest, str(e)))
 
             if arcfile:
@@ -296,8 +301,7 @@ def main():
                         shutil.rmtree(path)
                     else:
                         os.remove(path)
-                except OSError:
-                    e = get_exception()
+                except OSError as e:
                     errors.append(path)
 
             if len(errors) > 0:
@@ -354,9 +358,7 @@ def main():
 
                     successes.append(path)
 
-                except OSError:
-                    e = get_exception()
-
+                except OSError as e:
                     module.fail_json(path=path, dest=dest, msg='Unable to write to compressed file: %s' % str(e))
 
                 if arcfile:
@@ -376,8 +378,7 @@ def main():
             try:
                 os.remove(path)
 
-            except OSError:
-                e = get_exception()
+            except OSError as e:
                 module.fail_json(path=path, msg='Unable to remove source file: %s' % str(e))
 
     params['path'] = dest
@@ -387,7 +388,5 @@ def main():
 
     module.exit_json(archived=successes, dest=dest, changed=changed, state=state, arcroot=arcroot, missing=missing, expanded_paths=expanded_paths)
 
-# import module snippets
-from ansible.module_utils.basic import *
 if __name__ == '__main__':
     main()
