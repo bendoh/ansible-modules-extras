@@ -116,7 +116,7 @@ def main():
         argument_spec = dict(
             path = dict(type='list', required=True),
             format  = dict(choices=['gz', 'bz2', 'zip', 'tar'], default='gz', required=False),
-            dest = dict(required=False),
+            dest = dict(required=False, type='path'),
             remove = dict(required=False, default=False, type='bool'),
         ),
         add_file_common_args=True,
