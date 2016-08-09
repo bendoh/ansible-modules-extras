@@ -183,7 +183,7 @@ def main():
         if arcroot == '':
             arcroot = os.path.dirname(path) + os.sep
         else:
-            for i in xrange(len(arcroot)):
+            for i in range(len(arcroot)):
                 if path[i] != arcroot[i]:
                     break
 
