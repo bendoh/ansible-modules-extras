@@ -139,7 +139,7 @@ def main():
     successes = []
 
     for i, path in enumerate(paths):
-        path = os.path.expanduser(path)
+        path = os.path.expanduser(os.path.expandvars(path))
 
         # Detect glob-like characters
         if any((c in set('*?')) for c in path):
