@@ -128,6 +128,7 @@ def main():
     )
 
     params = module.params
+    check_mode = module.check_mode
     paths = params['path']
     dest = params['dest']
     remove = params['remove']
@@ -226,80 +227,81 @@ def main():
             size = os.path.getsize(dest)
 
         if state != 'archive':
-            try:
+            if check_mode:
+                changed = True
 
-                # Slightly more difficult (and less efficient!) compression using zipfile module
-                if format == 'zip':
-                    arcfile = zipfile.ZipFile(dest, 'w', zipfile.ZIP_DEFLATED)
+            else:
+                try:
+                    # Slightly more difficult (and less efficient!) compression using zipfile module
+                    if format == 'zip':
+                        arcfile = zipfile.ZipFile(dest, 'w', zipfile.ZIP_DEFLATED)
 
-                # Easier compression using tarfile module
-                elif format == 'gz' or format == 'bz2':
-                    arcfile = tarfile.open(dest, 'w|' + format)
+                    # Easier compression using tarfile module
+                    elif format == 'gz' or format == 'bz2':
+                        arcfile = tarfile.open(dest, 'w|' + format)
 
-                # Or plain tar archiving
-                elif format == 'tar':
-                    arcfile = tarfile.open(dest, 'w')
+                    # Or plain tar archiving
+                    elif format == 'tar':
+                        arcfile = tarfile.open(dest, 'w')
 
-                for path in archive_paths:
-                    if os.path.isdir(path):
-                        # Recurse into directories
-                        for dirpath, dirnames, filenames in os.walk(path, topdown=True):
-                            if not dirpath.endswith(os.sep):
-                                dirpath += os.sep
+                    for path in archive_paths:
+                        if os.path.isdir(path):
+                            # Recurse into directories
+                            for dirpath, dirnames, filenames in os.walk(path, topdown=True):
+                                if not dirpath.endswith(os.sep):
+                                    dirpath += os.sep
 
-                            for dirname in dirnames:
-                                fullpath = dirpath + dirname
-                                arcname = fullpath[len(arcroot):]
+                                for dirname in dirnames:
+                                    fullpath = dirpath + dirname
+                                    arcname = fullpath[len(arcroot):]
 
-                                try:
-                                    if format == 'zip':
-                                        arcfile.write(fullpath, arcname)
-                                    else:
-                                        arcfile.add(fullpath, arcname, recursive=False)
-
-                                except Exception:
-                                    e = get_exception()
-                                    errors.append('%s: %s' % (fullpath, str(e)))
-
-                            for filename in filenames:
-                                fullpath = dirpath + filename
-                                arcname = fullpath[len(arcroot):]
-
-                                if not filecmp.cmp(fullpath, dest):
                                     try:
                                         if format == 'zip':
                                             arcfile.write(fullpath, arcname)
                                         else:
                                             arcfile.add(fullpath, arcname, recursive=False)
 
-                                        successes.append(fullpath)
-                                    except Exception:
-                                        e = get_exception()
-                                        errors.append('Adding %s: %s' % (path, str(e)))
-                    else:
-                        if format == 'zip':
-                            arcfile.write(path, path[len(arcroot):])
+                                    except Exception as e:
+                                        errors.append('%s: %s' % (fullpath, str(e)))
+
+                                for filename in filenames:
+                                    fullpath = dirpath + filename
+                                    arcname = fullpath[len(arcroot):]
+
+                                    if not filecmp.cmp(fullpath, dest):
+                                        try:
+                                            if format == 'zip':
+                                                arcfile.write(fullpath, arcname)
+                                            else:
+                                                arcfile.add(fullpath, arcname, recursive=False)
+
+                                            successes.append(fullpath)
+                                        except Exception as e:
+                                            errors.append('Adding %s: %s' % (path, str(e)))
                         else:
-                            arcfile.add(path, path[len(arcroot):], recursive=False)
+                            if format == 'zip':
+                                arcfile.write(path, path[len(arcroot):])
+                            else:
+                                arcfile.add(path, path[len(arcroot):], recursive=False)
 
-                        successes.append(path)
+                            successes.append(path)
 
-            except Exception as e:
-                return module.fail_json(msg='Error when writing %s archive at %s: %s' % (format == 'zip' and 'zip' or ('tar.' + format), dest, str(e)))
+                except Exception as e:
+                    return module.fail_json(msg='Error when writing %s archive at %s: %s' % (format == 'zip' and 'zip' or ('tar.' + format), dest, str(e)))
 
-            if arcfile:
-                arcfile.close()
-                state = 'archive'
+                if arcfile:
+                    arcfile.close()
+                    state = 'archive'
 
-            if len(errors) > 0:
-                module.fail_json(msg='Errors when writing archive at %s: %s' % (dest, '; '.join(errors)))
+                if len(errors) > 0:
+                    module.fail_json(msg='Errors when writing archive at %s: %s' % (dest, '; '.join(errors)))
 
         if state in ['archive', 'incomplete'] and remove:
             for path in successes:
                 try:
                     if os.path.isdir(path):
                         shutil.rmtree(path)
-                    else:
+                    elif not check_mode:
                         os.remove(path)
                 except OSError as e:
                     errors.append(path)
@@ -374,7 +376,7 @@ def main():
 
             state = 'compress'
 
-        if remove:
+        if remove and not check_mode:
             try:
                 os.remove(path)
 
