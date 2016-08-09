@@ -102,9 +102,7 @@ expanded_paths:
     type: list
 '''
 
-import stat
 import os
-import errno
 import glob
 import shutil
 import gzip
