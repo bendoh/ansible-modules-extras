@@ -3,6 +3,7 @@
 
 # import module snippets
 from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.pycompat24 import get_exception
 
 """
 (c) 2016, Ben Doherty <bendohmv@gmail.com>
@@ -261,7 +262,8 @@ def main():
                                         else:
                                             arcfile.add(fullpath, arcname, recursive=False)
 
-                                    except Exception as e:
+                                    except Exception:
+                                        e = get_exception()
                                         errors.append('%s: %s' % (fullpath, str(e)))
 
                                 for filename in filenames:
@@ -276,7 +278,8 @@ def main():
                                                 arcfile.add(fullpath, arcname, recursive=False)
 
                                             successes.append(fullpath)
-                                        except Exception as e:
+                                        except Exception:
+                                            e = get_exception()
                                             errors.append('Adding %s: %s' % (path, str(e)))
                         else:
                             if format == 'zip':
@@ -286,7 +289,8 @@ def main():
 
                             successes.append(path)
 
-                except Exception as e:
+                except Exception:
+                    e = get_exception()
                     return module.fail_json(msg='Error when writing %s archive at %s: %s' % (format == 'zip' and 'zip' or ('tar.' + format), dest, str(e)))
 
                 if arcfile:
@@ -303,7 +307,8 @@ def main():
                         shutil.rmtree(path)
                     elif not check_mode:
                         os.remove(path)
-                except OSError as e:
+                except OSError:
+                    e = get_exception()
                     errors.append(path)
 
             if len(errors) > 0:
@@ -360,7 +365,8 @@ def main():
 
                     successes.append(path)
 
-                except OSError as e:
+                except OSError:
+                    e = get_exception()
                     module.fail_json(path=path, dest=dest, msg='Unable to write to compressed file: %s' % str(e))
 
                 if arcfile:
@@ -380,7 +386,8 @@ def main():
             try:
                 os.remove(path)
 
-            except OSError as e:
+            except OSError:
+                e = get_exception()
                 module.fail_json(path=path, msg='Unable to remove source file: %s' % str(e))
 
     params['path'] = dest
